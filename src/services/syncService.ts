@@ -23,14 +23,15 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchClosureDataset(): Promise<any> {
-  const url = `${DATASTORE_SEARCH_URL}?resource_id=${config.neaClosureDatasetId}`;
+async function fetchClosureDataset(): Promise<NeaClosureRecord[]> {
+  const url = `${DATASTORE_SEARCH_URL}?resource_id=${config.neaClosureDatasetId}&limit=500`;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const response = await fetch(url);
 
     if (response.ok) {
-      return response.json();
+      const payload = await response.json();
+      return payload?.result?.records ?? [];
     }
 
     if (response.status === 429 && attempt < 3) {
