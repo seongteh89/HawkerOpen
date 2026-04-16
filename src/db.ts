@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 
@@ -11,7 +11,10 @@ export const pool = new Pool({
   connectionString: databaseUrl,
 });
 
-export async function query<T = any>(text: string, params: any[] = []): Promise<QueryResult<T>> {
+export async function query<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params: any[] = []
+): Promise<QueryResult<T>> {
   return pool.query<T>(text, params);
 }
 
