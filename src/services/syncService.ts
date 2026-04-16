@@ -24,7 +24,7 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function fetchClosureDataset(): Promise<any> {
-  const url = 'YOUR_NEA_URL_HERE';
+  const url = `${DATASTORE_SEARCH_URL}?resource_id=${config.neaClosureDatasetId}`;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const response = await fetch(url);
