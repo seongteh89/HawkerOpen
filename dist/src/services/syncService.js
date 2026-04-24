@@ -13,18 +13,24 @@ function classifyOtherWorks(remarks) {
     }
     return 'other_works';
 }
+async function sleep(ms) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+}
 async function fetchClosureDataset() {
     const url = `${DATASTORE_SEARCH_URL}?resource_id=${config.neaClosureDatasetId}&limit=500`;
-    const response = await fetch(url);
-    if (!response.ok) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const response = await fetch(url);
+        if (response.ok) {
+            const payload = await response.json();
+            return payload?.result?.records ?? [];
+        }
+        if (response.status === 429 && attempt < 3) {
+            await sleep(attempt * 5000);
+            continue;
+        }
         throw new Error(`Failed to fetch NEA closure dataset: ${response.status} ${response.statusText}`);
     }
-    const json = await response.json();
-    const records = json.result?.records;
-    if (!records || !Array.isArray(records)) {
-        throw new Error('Unexpected NEA dataset response format');
-    }
-    return records;
+    throw new Error('Failed to fetch NEA closure dataset after retries');
 }
 async function upsertHawker(client, record) {
     const name = String(getField(record, 'name') ?? '').trim();

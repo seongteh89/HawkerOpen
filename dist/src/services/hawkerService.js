@@ -85,8 +85,26 @@ function normalizeSearchText(input) {
 function compactSearchText(input) {
     return normalizeSearchText(input).replace(/\s+/g, '');
 }
+function searchTextExpr() {
+    return `lower(coalesce(name, '') || ' ' || coalesce(address, '') || ' ' || coalesce(description, ''))`;
+}
 function combinedCompactExpr() {
-    return `regexp_replace(lower(coalesce(name, '') || ' ' || coalesce(address, '')), '[^a-z0-9]+', '', 'g')`;
+    return `regexp_replace(${searchTextExpr()}, '[^a-z0-9]+', '', 'g')`;
+}
+function expandSearchToken(token) {
+    switch (token) {
+        case 'hawker':
+        case 'hawkers':
+            return ['hawker', 'market', 'food centre', 'food center'];
+        case 'centre':
+        case 'centres':
+            return ['centre', 'center'];
+        case 'center':
+        case 'centers':
+            return ['center', 'centre'];
+        default:
+            return [token];
+    }
 }
 export async function searchHawkers(input) {
     const limit = input.limit ?? 20;
@@ -94,23 +112,25 @@ export async function searchHawkers(input) {
     const normalizedQuery = normalizeSearchText(input.queryText);
     const compactQuery = compactSearchText(input.queryText);
     const tokens = normalizedQuery.split(' ').filter((token) => token.length >= 2);
+    const textExpr = searchTextExpr();
     const compactExpr = combinedCompactExpr();
     const params = [`%${normalizedQuery}%`, `%${compactQuery}%`];
     const tokenMatchClauses = [];
     for (const token of tokens) {
-        const idx = params.length + 1;
-        tokenMatchClauses.push(`
-      (
-        lower(coalesce(name, '')) LIKE $${idx}
-        OR lower(coalesce(address, '')) LIKE $${idx}
-        OR ${compactExpr} LIKE $${idx}
-      )
-    `);
-        params.push(`%${token}%`);
+        const variants = Array.from(new Set(expandSearchToken(token)));
+        const variantClauses = [];
+        for (const variant of variants) {
+            const idx = params.length + 1;
+            params.push(`%${variant}%`);
+            variantClauses.push(`${textExpr} LIKE $${idx}`);
+            const compactIdx = params.length + 1;
+            params.push(`%${compactSearchText(variant)}%`);
+            variantClauses.push(`${compactExpr} LIKE $${compactIdx}`);
+        }
+        tokenMatchClauses.push(`(${variantClauses.join('\n        OR ')})`);
     }
     const whereParts = [
-        `lower(coalesce(name, '')) LIKE $1`,
-        `lower(coalesce(address, '')) LIKE $1`,
+        `${textExpr} LIKE $1`,
         `${compactExpr} LIKE $2`,
     ];
     if (tokenMatchClauses.length > 0) {
@@ -121,7 +141,8 @@ export async function searchHawkers(input) {
       WHEN lower(coalesce(name, '')) LIKE $1 THEN 0
       WHEN ${compactExpr} LIKE $2 THEN 1
       WHEN lower(coalesce(address, '')) LIKE $1 THEN 2
-      ELSE 3
+      WHEN lower(coalesce(description, '')) LIKE $1 THEN 3
+      ELSE 4
     END
   `;
     let sql;
