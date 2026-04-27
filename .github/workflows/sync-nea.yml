@@ -2,7 +2,7 @@ name: Sync NEA
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '17 2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -26,3 +26,4 @@ jobs:
         run: npm run sync:nea
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATA_GOV_SG_API_KEY: ${{ secrets.DATA_GOV_SG_API_KEY }}
